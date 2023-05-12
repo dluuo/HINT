@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from data.data import HierarchicalDataset
+from src.data.data import HierarchicalDataset
 
 def evaluate_forecast(nf, hdataset, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_samples):
     # Extract hint.model from nf core
