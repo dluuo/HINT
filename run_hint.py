@@ -1,84 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from neuralforecast.utils import augment_calendar_df
+from data.data import HierarchicalDataset
 
-from hierarchicalforecast.evaluation import scaled_crps, msse
-from datasetsforecast.hierarchical import HierarchicalData, HierarchicalInfo
-
-
-class HierarchicalDataset(object):
-    # Class with loading, processing and
-    # prediction evaluation methods for hierarchical data
-    available_datasets = ['Labour','Traffic',
-                          'TourismSmall','TourismLarge','Wiki2']
-
-    def _sort_hier_df(self, Y_df, S_df):
-        # NeuralForecast core, sorts unique_id lexicographically
-        # deviating from S_df, this class matches S_df and Y_hat_df order.
-        Y_df.unique_id = Y_df.unique_id.astype('category')
-        Y_df.unique_id = Y_df.unique_id.cat.set_categories(S_df.index)
-        Y_df = Y_df.sort_values(by=['unique_id', 'ds'])
-        return Y_df
-
-    def _nonzero_indexes_by_row(self, M):
-        return [np.nonzero(M[row,:])[0] for row in range(len(M))]    
-
-    def load_process_data(self, dataset, directory='./data'):
-        # Load data
-        assert dataset in self.available_datasets
-        data_info = HierarchicalInfo[dataset]
-        Y_df, S_df, tags = HierarchicalData.load(directory=directory,
-                                                 group=dataset)
-
-        # Parse and augment data
-        Y_df['ds'] = pd.to_datetime(Y_df['ds'])
-        Y_df = self._sort_hier_df(Y_df=Y_df, S_df=S_df)
-        Y_df, calendar_cols = augment_calendar_df(df=Y_df, freq=data_info.freq)
-
-        # Obtain indexes for plots and evaluation
-        hier_levels = ['Overall'] + list(tags.keys())
-        hier_idxs = [np.arange(len(S_df))] +\
-            [S_df.index.get_indexer(tags[level]) for level in list(tags.keys())]
-        hier_linked_idxs = self._nonzero_indexes_by_row(S_df.values.T)
-
-        # Final output
-        data = dict(Y_df=Y_df, S_df=S_df, tags=tags,
-                    # Hierarchical idxs
-                    hier_idxs=hier_idxs,
-                    hier_levels=hier_levels,
-                    hier_linked_idxs=hier_linked_idxs,
-                    # Properties
-                    horizon=data_info.seasonality,
-                    freq=data_info.freq,
-                    seasonality=data_info.seasonality,
-                    futr_exog_list=calendar_cols)
-        return data
-    
-def _get_hierarchical_scrps(hier_idxs, Y_test, Yq_hat, quantiles):
-    # We use the indexes obtained from the aggregation tags
-    # to compute scaled CRPS across the hierarchy levels 
-    scrps_list = []
-    for idxs in hier_idxs:
-        y      = Y_test[idxs, :]
-        yq_hat = Yq_hat[idxs, :, :]
-        scrps  = scaled_crps(y, yq_hat, quantiles)
-        scrps_list.append(scrps)
-    return scrps_list
-
-def _get_hierarchical_relmse(hier_idxs, Y_test, Y_hat, Y_train):
-    # We use the indexes obtained from the aggregation tags
-    # to compute scaled CRPS across the hierarchy levels         
-    relmse_list = []
-    for idxs in hier_idxs:
-        y       = Y_test[idxs, :]
-        y_hat   = Y_hat[idxs, :]
-        y_train = Y_train[idxs, :]
-        crps    = msse(y, y_hat, y_train)
-        relmse_list.append(crps)
-    return relmse_list
-    
-def evaluate_forecast(nf, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_samples):
+def evaluate_forecast(nf, hdataset, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_samples):
     # Extract hint.model from nf core
     model_name = type(nf.models[0]).__name__
     model = nf.models[0].model
@@ -88,8 +13,6 @@ def evaluate_forecast(nf, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_sampl
     # Removing mean and median default outputs
     Y_hat_df_list = [nf.predict() for _ in range(n_samples)]
     model_columns = [model_name + n for n in model.loss.output_names]
-    #quantile_columns.remove(model_name)
-    #quantile_columns.remove(model_name + '-median')
 
     # Parse shapes
     n_series = len(Y_test_df.unique_id.unique())
@@ -111,16 +34,16 @@ def evaluate_forecast(nf, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_sampl
     sample_relmse = []
     n_samples = Yq_hat_sample.shape[0]
     for sample_idx in range(n_samples):
-        relmse = _get_hierarchical_relmse(hier_idxs=hier_idxs,
-                                          Y_test=Y_test,
+        relmse = hdataset._get_hierarchical_msse(hier_idxs=hier_idxs,
+                                          Y=Y_test,
                                           Y_hat=Ymean_hat_sample[sample_idx],
                                           Y_train=Y_train)
         sample_relmse.append(relmse)
 
-        scrps = _get_hierarchical_scrps(hier_idxs=hier_idxs,
-                                        Y_test=Y_test,
+        scrps = hdataset._get_hierarchical_scrps(hier_idxs=hier_idxs,
+                                        Y=Y_test,
                                         Yq_hat=Yq_hat_sample[sample_idx],
-                                        quantiles=quantiles)
+                                        q_to_pred=quantiles)
         sample_scrps.append(scrps)
 
     mean_relmse = np.mean(np.array(sample_relmse), axis=0)
@@ -138,7 +61,6 @@ def evaluate_forecast(nf, Y_train_df, Y_test_df, hier_idxs, hier_levels, n_sampl
                          relMSE=relmse_results)
     evaluation_df = pd.DataFrame(evaluation_df)
     return evaluation_df
-
 
 if __name__ == '__main__':
 
@@ -191,7 +113,7 @@ if __name__ == '__main__':
     print(f'\n\n model_name {model_name} \n\n')
 
     hint = HINT(h=horizon, S=S_df.values,
-                model=model,  reconciliation='MinTraceOLS')
+                model=model,  reconciliation='BottomUp')
     
     nf = NeuralForecast(models=[hint], freq=freq)
     nf.fit(df=Y_train_df, val_size=12)
@@ -200,7 +122,7 @@ if __name__ == '__main__':
     #------------------------- Evaluate HINT -------------------------#
     # Parse y_test and y_rec
     # Keep only quantile columns from fcsts_df
-    evaluation_df = evaluate_forecast(nf=nf, 
+    evaluation_df = evaluate_forecast(nf=nf, hdataset=hdataset,
                                       Y_test_df=Y_test_df, Y_train_df=Y_train_df,
                                       hier_idxs=hier_idxs, hier_levels=hier_levels,
                                       n_samples=8)
