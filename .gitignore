@@ -138,7 +138,6 @@ dmypy.json
 *.csv
 *.p
 *.zip
-*/data/*
 *lightning_logs/*
 
 Gemfile.lock
