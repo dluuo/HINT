@@ -139,7 +139,7 @@ dmypy.json
 *.p
 *.zip
 */data/*
-*/lightning_logs/*
+*lightning_logs/*
 
 Gemfile.lock
 _docs/
