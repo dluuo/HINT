@@ -18,5 +18,6 @@ We demonstrate improved accuracy on several datasets compared to the existing st
 To start using the HINT repository, run the following:
 1. `bash setup.sh`
 2. `conda activate HINT`
+3. `(HINT) usr/path/ ~ % python run_hint.py`
 
-Now, you can run run_hint.py. For the jupyter notebooks, upload them to Colab to run on GPU.
+For the jupyter notebooks, upload them to Colab to run on GPU.
