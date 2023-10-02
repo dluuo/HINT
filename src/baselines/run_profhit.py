@@ -25,10 +25,14 @@ import argparse
 # Create an argument parser to accept command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', type=str, help='Name of the dataset')
+parser.add_argument('pretrain_input', type=int, help='# Pretrain Epochs', default=10)
+parser.add_argument('train_input', type=int, help='# Train Epochs', default=100)
 
 # Parse the command-line arguments
 args = parser.parse_args()
 DATASET = args.dataset
+PRETRAIN_INPUT = args.pretrain_input
+TRAIN_INPUT = args.train_input
 
 #----------------------------PARAMETERS-----------------------------
 
@@ -75,11 +79,11 @@ BACKUP_TIMES = {
 }
 
 PRE_TRAIN_DICT = {
-    'Labour': 20, 
-    'Traffic': 20,
-    'TourismSmall': 20,
-    'TourismLarge': 20,
-    'Wiki2': 20
+    'Labour': 10, 
+    'Traffic': 10,
+    'TourismSmall': 10,
+    'TourismLarge': 10,
+    'Wiki2': 10
 }
 
 TRAIN_DICT = {
@@ -98,13 +102,15 @@ TRAIN_UPTO = TOTAL_TIMESTEPS - SEASONALITY
 BACKUP_TIME = BACKUP_TIMES[DATASET]
 PRE_BATCH_SIZE = 10
 PRE_TRAIN_LR = 0.001
-PRE_TRAIN_EPOCHS = PRE_TRAIN_DICT[DATASET]
+# PRE_TRAIN_EPOCHS = PRE_TRAIN_DICT[DATASET]
+PRE_TRAIN_EPOCHS = PRETRAIN_INPUT
 FRAC_VAL = 0.1
 C = 5.0
 BATCH_SIZE = 10
 TRAIN_LR = 0.001
 LAMBDA = 0.0
-TRAIN_EPOCHS = TRAIN_DICT[DATASET]
+# TRAIN_EPOCHS = TRAIN_DICT[DATASET]
+TRAIN_EPOCHS = TRAIN_INPUT
 EVAL_SAMPLES = 100
 
 np.random.seed(SEED)
