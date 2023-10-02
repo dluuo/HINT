@@ -75,11 +75,11 @@ BACKUP_TIMES = {
 }
 
 PRE_TRAIN_DICT = {
-    'Labour': 10, 
-    'Traffic': 10,
-    'TourismSmall': 10,
-    'TourismLarge': 10,
-    'Wiki2': 10
+    'Labour': 20, 
+    'Traffic': 20,
+    'TourismSmall': 20,
+    'TourismLarge': 20,
+    'Wiki2': 20
 }
 
 TRAIN_DICT = {
